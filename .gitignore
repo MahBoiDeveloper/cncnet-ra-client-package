@@ -3,6 +3,7 @@ DtaverWriter.exe
 ddraw.dll
 ddraw.ini
 Client/*
+Debug/*
 Maps/Custom/*.zip
 Maps/Custom/*.map
 Maps/Custom/*.png
