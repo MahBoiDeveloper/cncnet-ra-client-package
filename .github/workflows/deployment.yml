@@ -194,6 +194,13 @@ jobs:
         with:
           name: package
 
+      # Download the installer artifact. Only published releases publish it to the download page.
+      - name: Get installer artifact
+        if: github.event_name == 'release' && github.event.action == 'published'
+        uses: actions/download-artifact@v4
+        with:
+          name: installer
+
       # Upload the package archive to a staging directory. It is never served from there.
       - name: Deploy package
         uses: appleboy/scp-action@master
@@ -257,6 +264,29 @@ jobs:
             cd -- "${{ secrets.SSH_PATH_GAMES_RA }}" &&
             ln -s "updates/${{ needs.build-package.outputs.packageUploadVersion }}" "live.tmp.${{ github.run_id }}.${{ github.run_attempt }}" &&
             mv -Tf "live.tmp.${{ github.run_id }}.${{ github.run_attempt }}" live
+
+      # Overwrite the installer offered on the public download page. The filename is deliberately
+      # unversioned so cncnet.org can link to it directly and never needs updating for a release.
+      #
+      # This deliberately runs AFTER the live link flip. If the flip fails, nothing is promoted.
+      # If the flip succeeds and this fails, the public installer is merely stale: a new user
+      # installs the previous version and the updater immediately pulls them to this one.
+      # The opposite order has no such self-healing path.
+      #
+      # Guarded on prerelease == false because the "published" event also fires for GitHub
+      # pre-releases, which must not overwrite the installer offered to the public.
+      - name: Upload installer
+        if: github.event_name == 'release' && github.event.action == 'published' && github.event.release.prerelease == false
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          passphrase: ${{ secrets.SSH_PASS }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          overwrite: true
+          source: "CnCNet5_RA_Installer.exe"
+          target: "${{ secrets.PUBLICDOWNLOADFOLDER }}"
 
       # Create/update a mirror link for client update purposes, using the GitVersion pre release label as the link name.
       # See the file "GitVersion.yml" for more details on the name that will be used for a given branch.
